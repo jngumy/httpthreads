@@ -25,31 +25,36 @@ public class Evento
             this.tickets.put(i, new Ticket());
     }
     
-    public synchronized void reservarTicket(HttpExchange request, int id) throws IOException
+    public synchronized void reservarTicket(HttpExchange request, int id, int nroCliente) throws IOException, InterruptedException
     {
         Ticket ticket = disponible();
         int codigo =404;
         String mensaje = "Solicitud id: "+ id + " no pudo realizar una reserva";
-        if(ticket != null)
-        {
-            ticket.cambiarEstado(RESERVADO);
-            codigo = 200;
-            mensaje = "Solicitud id: "+ id + " reservó el ticket nro: " + ticket.getNroTicket();
-            
+       
+        Thread.sleep((int)Math.random() * 100000); //simular tiempo de reserva
+        while(ticket == null)
+        {   
+            System.out.println("Solicitud id: "+ id + " en la espera de un ticket libre para reservar");
+            wait();
+            ticket = disponible();
         }
+        ticket.cambiarEstado(RESERVADO);
+        ticket.setNroCliente(nroCliente);
+        codigo = 200;
+        mensaje = "Solicitud id: "+ id + " reservó el ticket nro: " + ticket.getNroTicket() + " (Nro de cliente: "+ nroCliente + " ).";
         Respuesta respuesta = new Respuesta(id, mensaje,codigo);
         System.out.println(respuesta.getMensaje());
         Server.responseReserva(request, respuesta);
       
     }
     
-    public synchronized void confirmarCompra(int nroTicket, HttpExchange request, int id) throws IOException
+    public synchronized void confirmarCompra(int nroTicket, int nroCliente, HttpExchange request, int id) throws IOException
     {
         
         int codigo =404;
         String mensaje = " ";
         
-        if(this.tickets.containsKey(nroTicket) && this.tickets.get(nroTicket).getEstado() == RESERVADO)
+        if(this.tickets.containsKey(nroTicket) && this.tickets.get(nroTicket).getEstado() == RESERVADO && this.tickets.get(nroTicket).getNroCliente()== nroCliente)
         {
             codigo = 200;
             this.tickets.get(nroTicket).cambiarEstado(COMPRADO);
@@ -62,13 +67,35 @@ public class Evento
             if(this.tickets.containsKey(nroTicket) && this.tickets.get(nroTicket).getEstado() == COMPRADO)
                 mensaje = "Solicitud id: "+ id + " no pudo realizar la compra del ticket nro: " + nroTicket +". Ya fue comprado previamente";
             else
-                mensaje = "Solicitud id: "+ id + " no pudo realizar la compra del ticket nro: " + nroTicket +". No existe el ticket";
+                if(this.tickets.containsKey(nroTicket) && this.tickets.get(nroTicket).getEstado() == RESERVADO && this.tickets.get(nroTicket).getNroCliente() != nroCliente )
+                    mensaje = "Solicitud id: "+ id + " no pudo realizar la compra del ticket nro: " + nroTicket +". El nro de cliente es incorrecto";
+                else
+                    mensaje = "Solicitud id: "+ id + " no pudo realizar la compra del ticket nro: " + nroTicket +". No existe el ticket";
             
         Respuesta respuesta = new Respuesta(id, mensaje,codigo);
         System.out.println(respuesta.getMensaje());
         Server.responseCompra(request, respuesta);
         
     }
+    
+    public synchronized void cancelaReservaTicket( int nroTicket, int nroCliente , HttpExchange request, int id) throws IOException, InterruptedException
+    {
+        int codigo =404;
+        String mensaje = "Solicitud id: "+ id + " no pudo cancelar la reserva";
+       
+        if(this.tickets.containsKey(nroTicket) && this.tickets.get(nroTicket).getEstado() == RESERVADO && this.tickets.get(nroTicket).getNroCliente()== nroCliente)
+        {
+           this.tickets.get(nroTicket).cambiarEstado(LIBRE);
+           this.tickets.get(nroTicket).setNroCliente(-1);
+           codigo = 200;
+           mensaje = "Solicitud id: "+ id + " canceló la reserva del ticket nro: " + nroTicket + " (Nro de cliente: "+ nroCliente + " ).";
+           notifyAll();
+        }
+        Respuesta respuesta = new Respuesta(id, mensaje,codigo);
+        System.out.println(respuesta.getMensaje());
+        Server.responseCancela(request, respuesta);
+    }
+    
     private Ticket disponible()
     {
         Iterator it = this.tickets.values().iterator();

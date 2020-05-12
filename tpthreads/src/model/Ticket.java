@@ -3,6 +3,7 @@ package model;
 public class Ticket
 {
     private int nroTicket;
+    private int nroCliente;
     private int estado;
     private static int cant =1 ;
 
@@ -11,6 +12,7 @@ public class Ticket
         this.nroTicket = cant;
         cant ++;
         this.estado = Evento.LIBRE;
+        this.nroCliente = -1;
     }
 
     public int getNroTicket()
@@ -22,7 +24,17 @@ public class Ticket
     {
         return estado;
     }
-    
+
+    public void setNroCliente(int nroCliente)
+    {
+        this.nroCliente = nroCliente;
+    }
+
+    public int getNroCliente()
+    {
+        return nroCliente;
+    }
+
     public void cambiarEstado(int estado)
     {
         this.estado = estado;
